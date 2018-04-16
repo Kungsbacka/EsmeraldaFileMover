@@ -85,19 +85,22 @@ namespace EsmeraldaFileMover
             stop = true;
         }
 
-        private void Log(string msg, string target, Exception ex, int id)
+        private void Log(string msg, string target, Exception ex, int id, bool force = false)
         {
             if (null == eventLog)
             {
                 return;
             }
-            // Check if we have logged this message before to avoid spamming the event log.
-            int hash = $"{id}:{target}".GetHashCode();
-            if (loggedTargets.Contains(hash))
+            if (!force)
             {
-                return;
+                // Check if we have logged this message before to avoid spamming the event log.
+                int hash = $"{id}:{target}".GetHashCode();
+                if (loggedTargets.Contains(hash))
+                {
+                    return;
+                }
+                loggedTargets.Add(hash);
             }
-            loggedTargets.Add(hash);
             eventLog.WriteEntry(
                 $"{msg}\r\n\r\nTarget: {target}\r\n\r\n{ex?.ToString()}",
                 id < 20 ? EventLogEntryType.Error : EventLogEntryType.Warning,
@@ -118,7 +121,19 @@ namespace EsmeraldaFileMover
         {
             while (!stop)
             {
-                string[] xmlFiles = Directory.GetFiles(inboxDirectory, "*.xml", SearchOption.AllDirectories);
+                string[] xmlFiles = null;
+                try
+                {
+                    xmlFiles = Directory.GetFiles(inboxDirectory, "*.xml", SearchOption.AllDirectories);
+                }
+                catch(IOException ex)
+                {
+                    Log("Enumerating XML files failed", inboxDirectory, ex, 10, true);
+                }
+                if (xmlFiles == null)
+                {
+                    continue;
+                }
                 foreach (string xmlFile in xmlFiles)
                 {
                     if (stop)
@@ -127,8 +142,7 @@ namespace EsmeraldaFileMover
                     }
                     string xmlFileName = Path.GetFileName(xmlFile);
                     string sourceDir = Path.GetDirectoryName(xmlFile);
-                    FailInfo info;
-                    if (failedBundles.TryGetValue(xmlFileName, out info))
+                    if (failedBundles.TryGetValue(xmlFileName, out FailInfo info))
                     {
                         if (!info.Retry)
                         {
@@ -188,9 +202,9 @@ namespace EsmeraldaFileMover
                         {
                             using (File.Open(sourcePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
                         }
-                        catch (IOException)
+                        catch (IOException ex)
                         {
-                            Log("Cannot get an exclusive lock on file", sourcePath, null, 10);
+                            Log("Cannot get an exclusive lock on file", sourcePath, ex, 10);
                             canMove = false;
                             break;
                         }

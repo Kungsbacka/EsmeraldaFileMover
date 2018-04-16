@@ -7,6 +7,7 @@ namespace EsmeraldaFileMover
     {
         static void Main()
         {
+
             if (!EventLog.SourceExists("EsmeraldaFileMover"))
             {
                 EventLog.CreateEventSource("EsmeraldaFileMover", "EsmeraldaFileMover");
