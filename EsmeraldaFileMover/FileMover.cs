@@ -19,7 +19,7 @@ namespace EsmeraldaFileMover
         private string xmlDestinationDirectory;
         private string attachmentDestinationDirectory;
         private HashSet<int> loggedTargets;
-        private Dictionary<string, FailInfo> failedBundles;
+        private Dictionary<string, FailInfo> failedFiles;
 
         class FailInfo
         {
@@ -36,7 +36,7 @@ namespace EsmeraldaFileMover
         {
             this.eventLog = eventLog;
             loggedTargets = new HashSet<int>();
-            failedBundles = new Dictionary<string, FailInfo>();
+            failedFiles = new Dictionary<string, FailInfo>();
         }
 
         public void Start()
@@ -73,7 +73,7 @@ namespace EsmeraldaFileMover
                 }
                 catch (Exception ex)
                 {
-                    Log("An unhandeled exception occured. Service stopped.", null, ex, 0);
+                    Log("An unhandled exception occurred. Service stopped.", null, ex, 0);
                 }
             });
             thread.Start();
@@ -136,13 +136,9 @@ namespace EsmeraldaFileMover
                 }
                 foreach (string xmlFile in xmlFiles)
                 {
-                    if (stop)
-                    {
-                        return;
-                    }
                     string xmlFileName = Path.GetFileName(xmlFile);
                     string sourceDir = Path.GetDirectoryName(xmlFile);
-                    if (failedBundles.TryGetValue(xmlFileName, out FailInfo info))
+                    if (failedFiles.TryGetValue(xmlFileName, out FailInfo info))
                     {
                         if (!info.Retry)
                         {
@@ -150,7 +146,7 @@ namespace EsmeraldaFileMover
                         }
                         if (DateTime.Now - info.FirstFailTime > TimeSpan.FromHours(24))
                         {
-                            Log("Time limit exceeded for files in target folder. No more attempts will be made to move the files.", sourceDir, null, 10);
+                            Log("Time limit exceeded for files in target folder. No more attempts will be made to move the file.", sourceDir, null, 10);
                             info.Retry = false;
                             continue;
                         }
@@ -165,9 +161,9 @@ namespace EsmeraldaFileMover
                     catch (IOException ex)
                     {
                         Log("Unable to read xml document", xmlFile, ex, 10);
-                        if (!failedBundles.TryGetValue(xmlFileName, out info))
+                        if (!failedFiles.TryGetValue(xmlFileName, out info))
                         {
-                            failedBundles.Add(xmlFileName, new FailInfo(true));
+                            failedFiles.Add(xmlFileName, new FailInfo(true));
                         }
                         continue;
                     }
@@ -211,9 +207,9 @@ namespace EsmeraldaFileMover
                     }
                     if (!canMove)
                     {
-                        if (!failedBundles.ContainsKey(xmlFileName))
+                        if (!failedFiles.ContainsKey(xmlFileName))
                         {
-                            failedBundles.Add(xmlFileName, new FailInfo(true));
+                            failedFiles.Add(xmlFileName, new FailInfo(true));
                         }
                         continue;
                     }
@@ -259,13 +255,13 @@ namespace EsmeraldaFileMover
                     }
                     else
                     {
-                        if (failedBundles.TryGetValue(xmlFileName, out info))
+                        if (failedFiles.TryGetValue(xmlFileName, out info))
                         {
                             info.Retry = false;
                         }
                         else
                         {
-                            failedBundles.Add(xmlFileName, new FailInfo(false));
+                            failedFiles.Add(xmlFileName, new FailInfo(false));
                         }
                     }
                 }
